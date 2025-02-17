@@ -1,0 +1,353 @@
+
+
+```{r}
+raw_data <- read.csv("/Users/sanjusureshkumar/Downloads/Abstract_Risk_8_Renamed.csv", sep = ",", header = TRUE, stringsAsFactors = FALSE)
+```
+
+
+```{r}
+# Assign column names and rename them according to the Commodities
+colnames(raw_data) <- c(
+  "Country", "ISO_A2", "Presence", "Consent", "Corruption level", "Lack of law Enforcement", 
+  "Child Labour", "Worst Forms ChildLabour", "Worst Forms ChildLabour_Cocoa", 
+  "Worst Forms ChildLabour_Cattle", "Worst Forms ChildLabour_Palm", "Worst Forms ChildLabour_Rubber",
+  "Worst Forms ChildLabour_Soy", "Worst Forms ChildLabour_Wood", 
+  "Forced LabourSlavery", "Forced LabourSlavery_Cocoa", 
+  "Forced LabourSlavery_Cattle", "Forced LabourSlavery_Palm", 
+  "Forced LabourSlavery_Rubber", "Forced LabourSlavery_Soy", 
+  "Forced LabourSlavery_Wood", "Occupational Safety", 
+  "Freedom Association", "Unequal Treatment", "Adequate Wage", 
+  "Harmful Soil Change", "Unlawful Eviction", "Inappropriate use of security forces", 
+  "Armed Conflict", "Sanctions imposed by UN_EU"
+)
+
+# Check the updated column names
+colnames(raw_data)
+```
+
+```{r}
+# Identify numeric columns (exclude character columns)
+numeric_columns <- setdiff(colnames(raw_data), c("Country", "ISO_A2", "Presence"))
+
+# Convert raw data columns to character and remove non-ASCII characters
+raw_data[, numeric_columns] <- lapply(raw_data[, numeric_columns], function(col) {
+  col <- as.character(col) # Ensure it's a character vector
+  col <- iconv(col, from = "latin1", to = "ASCII", sub = "") # Remove non-ASCII characters
+  col <- gsub("[^0-9,.-]", "", col) # Remove any unwanted characters except numbers, dots, and commas
+  col <- gsub(",", ".", col)  # Replace commas with periods (decimal format)
+  col <- trimws(col)  # Remove leading/trailing whitespace
+  #col[col == "_" | col == ""] <- NA  # Replace `_` and empty strings with NA
+  as.numeric(col)  # Convert to numeric
+})
+
+
+
+# structure and summary of the cleaned dataset
+#str(raw_data)
+#summary(raw_data[, numeric_columns])
+write.csv(raw_data, "Cleaned_Abstract_Risk.csv", row.names = FALSE)
+```
+
+```{r}
+library(readr)
+data <- read.csv("/Users/sanjusureshkumar/Documents/Plau_rough/Cleaned_Abstract_Risk.csv", sep = ",", header = TRUE, stringsAsFactors = FALSE)
+Cleaned_Abstract_Risk <- read_csv("Cleaned_Abstract_Risk.csv")
+#summary(data)
+```
+
+# Run the columns as per the chart needed
+
+# Human Rights 
+```{r}
+columns <- c(
+  "Child Labour", 
+  "Worst Forms ChildLabour",
+  "Forced LabourSlavery",
+  "Occupational Safety",
+  "Freedom Association",
+  "Unequal Treatment",
+  "Adequate Wage",
+  "Harmful Soil Change",
+  "Unlawful Eviction",
+  "Inappropriate use of security forces"
+)
+```
+
+# Corruption
+```{r}
+columns <- c(
+  "Corruption level",
+  "Lack of law Enforcement",
+  "Armed Conflict",
+  "Sanctions imposed by UN_EU"
+)
+```
+
+#Indegious 
+```{r}
+columns <- c(
+  "Presence", 
+  "Consent"
+)
+```
+
+# Charts for Corruption and Human Rights for all the countries 
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+library(stringr)
+
+create_circular_chart <- function(data, country, crop, columns, output_dir) {
+  
+  
+  # Ensure the output directory exists
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir)
+  }
+  
+  # Filter data for the specific country and select relevant columns
+  country_data <- data %>% filter(Country == country)
+  
+  # Handle missing ISO_A2 or ensure unique
+  iso_code <- unique(country_data$ISO_A2)
+  if (length(iso_code) != 1) {
+    stop("Invalid or missing ISO_A2 for country:", country)
+  }
+  
+  # Prepare data for plotting
+  plot_data <- data.frame(
+    ShortVersion = str_wrap(columns, width = 15),  # Wrap text for better readability
+    Values = sapply(columns, function(col) country_data[[col]])
+  )
+  
+  plot_data <- plot_data %>%
+    mutate(
+      PlotData = ifelse(is.na(Values), 4, Values),
+      Label = ifelse(is.na(Values), "No data", round(Values, 2))
+    )
+  
+  # Create the plot
+  plt <- ggplot(plot_data) +
+    # Custom grid lines
+    geom_hline(yintercept = 1:4, color = "gray75") +
+    
+    # Add bars with gradient fill
+    geom_col(aes(x = factor(ShortVersion, levels = str_wrap(columns, width = 15)),
+             y = Values, fill = Values), alpha = 0.9, show.legend = TRUE) +
+    
+    # Add labels inside the bars
+    geom_text(aes(x = factor(ShortVersion, levels = str_wrap(columns, width = 15)),
+                  y = PlotData, label = Label),
+              size = 3, position = position_stack(vjust = 0.9)) +
+    
+    # Add dashed lines from the bars to the center
+    geom_segment(aes(x = factor(ShortVersion, levels = str_wrap(columns, width = 15)),
+                     xend = factor(ShortVersion, levels = str_wrap(columns, width = 15)),
+                     y = Values, yend = 4),
+                 linetype = "dashed", color = "lightgray") +
+    
+    # Make the plot circular
+    coord_polar(start = 0) +
+    
+    # Scale for y-axis to control spacing
+    scale_y_continuous(
+      limits = c(-1, 4),
+      expand = c(0, 0.3),
+      breaks = c(1, 1.37, 1.75, 2.12, 2.5, 2.88, 3.25, 3.63, 4)
+    ) +
+    
+    # Gradient color fill for bars
+    scale_fill_gradientn(
+      name = "Risk Level",
+      colours = c("#6FA068", "#8ecc88", "#b8df96", "#Ffffc6", "#f5e97b", "#f4b55f", "#f0983d", "#ea7650"),
+      limits = c(1, 4),
+      breaks = c(1, 1.37, 1.75, 2.12, 2.5, 2.88, 3.25, 3.63, 4),
+      labels = c("", "low", "", "moderate", "", "substantial", "", "high", ""),
+      na.value = "grey50"
+    ) +
+    
+    # Style adjustments
+    guides(fill = guide_colorsteps(barwidth = 15, barheight = 0.5, title.position = "top", title.hjust = 0.5)) +
+    theme_minimal() +
+    theme(
+      panel.background = element_rect(fill = "white", color = "white"),  # Set white background
+      plot.background = element_rect(fill = "white", color = "white"),  # Set white background
+      axis.title = element_blank(),
+      axis.ticks = element_blank(),
+      axis.text.y = element_blank(),
+      axis.text.x = element_text(color = "gray12", size = 10, angle = 0, hjust = 1),  # Adjust label angle and alignment
+      legend.position = "bottom",
+      panel.grid = element_blank()
+    ) +
+    
+    # Add subtitle and customize fonts
+    labs(subtitle = paste("\n", crop, "production in", country)) +
+    theme(
+      text = element_text(color = "gray12", family = "Times"),
+      plot.subtitle = element_text(face = "bold", size = 14, hjust = 0.05)
+    )
+  
+  # Save the chart as a PNG file
+  file_name <- paste0(output_dir, "/", iso_code, "_", crop, ".png")
+  ggsave(file_name, plot = plt, width = 10, height = 10, bg = "white")  # Increase size and ensure white background
+  cat("Saved chart for", country, "to", file_name, "\n")
+  
+  return(plt)
+}
+```
+
+Pass the parameters for the above function 
+```{r}
+unique_countries <- unique(Cleaned_Abstract_Risk$Country)
+for (country in unique_countries) {
+  create_circular_chart(
+    data = Cleaned_Abstract_Risk,
+    country = country,
+    crop = "Wood", # Crop name also can be changed 
+    columns = columns,
+    output_dir = "corruption" #Change the directory name (Corruption or Human Rights)
+  )
+}
+```
+
+Indegious charts
+
+```{r}
+
+library(ggplot2)
+library(dplyr)
+
+# Function to create the styled chart and save it as a PNG
+create_and_save_circle_chart <- function(data, crop_name, output_dir = ".") {
+  # Ensure the output directory exists
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+  }
+  
+  # Loop through each unique country in the dataset
+  for (i in 1:nrow(data)) {
+    country_name <- data$Country[i]
+    iso_code <- data$ISO_A2[i]
+    
+    # Extract Presence and Consent values dynamically
+    presence_value <- ifelse(is.na(data$Presence[i]), "No data", as.character(data$Presence[i]))
+    consent_value <- ifelse(is.na(data$Consent[i]), "No data", as.numeric(data$Consent[i]))
+    
+    # Define circles' data
+    circle_data <- data.frame(
+      id = c(1, 2),
+      x = c(0, 6), # Explicitly set positions with sufficient spacing
+      y = c(0, 0), # Vertical alignment
+      label = c(presence_value, ifelse(consent_value == "No data", "No data", as.character(consent_value))),
+      fill = c(NA, ifelse(consent_value == "No data", 0, consent_value)), # Replace NA with 0 for Consent
+      radius = c(2, 2) # Radii of the circles
+    )
+    
+    # Create circle outlines
+    circle_outlines <- do.call(rbind, lapply(1:nrow(circle_data), function(i) {
+      theta <- seq(0, 2 * pi, length.out = 100)
+      data.frame(
+        id = circle_data$id[i],
+        x = circle_data$x[i] + circle_data$radius[i] * cos(theta),
+        y = circle_data$y[i] + circle_data$radius[i] * sin(theta),
+        fill = circle_data$fill[i]
+      )
+    }))
+    
+    # Generate the plot
+    plt <- ggplot() +
+      # Presence circle (grey)
+      geom_polygon(data = circle_outlines %>% filter(id == 1), aes(x, y, group = id), fill = "grey50", color = NA) +
+      # Consent circle (gradient fill or grey for "No data")
+      geom_polygon(data = circle_outlines %>% filter(id == 2), aes(x, y, group = id, fill = fill), color = NA) +
+      # Add text labels centered inside the circles
+      geom_text(data = circle_data, aes(x = x, y = y, label = label), size = 6, color = "black") +
+      # Gradient scale for Consent circle
+      scale_fill_gradientn(
+        name = "Risk Level",
+        colours = c("#6FA068", "#8ecc88", "#b8df96", "#Ffffc6", "#f5e97b", "#f4b55f", "#f0983d", "#ea7650"),
+        limits = c(1, 4),
+        breaks = c(1, 1.37, 1.75, 2.12, 2.5, 2.88, 3.25, 3.63, 4),
+        labels = c("", "low", "", "moderate", "", "substantial", "", "high", ""),
+        na.value = "grey50", # Grey fill for NA values
+        guide = guide_colorsteps(
+          barwidth = 15, barheight = 0.5, title.position = "top", title.hjust = 0.5
+        )
+      ) +
+      # Add titles and labels
+      labs(
+        title = paste("Risk Levels for", crop_name, "in", country_name),
+        x = NULL,
+        y = NULL,
+        fill = "Risk Level"
+      ) +
+      # Minimal theme with customizations
+      theme_minimal() +
+      theme(
+        legend.position = "bottom",
+        text = element_text(color = "gray12", family = "Times"),
+        plot.title = element_text(face = "bold", size = 15, hjust = 0.05),
+        panel.grid = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_blank(),
+        axis.title = element_blank(),
+        axis.text.y =  element_blank(),
+        axis.text.x = element_blank(),
+        plot.background = element_rect(fill = "white", color = "white")
+      ) +
+      coord_fixed()
+    
+    # Save the plot as a PNG file
+    file_name <- paste0(output_dir, "/", iso_code, "_", crop_name, ".png")
+    ggsave(file_name, plt, width = 10, height = 5)
+  }
+}
+
+# Parameter to pass in the function
+create_and_save_circle_chart(data, crop_name = "Wood", output_dir = "indigineous")
+
+```
+
+
+
+
+# Data Cleaning and if necessary short the colnames 
+```{r}
+# Function to clean the dataset
+clean_data <- function(data) {
+  
+# Remove first two rows (if they are headers)
+  data <- data[-c(1:2), ]
+  
+  colnames(data) <- make.names(colnames(data), unique = TRUE)
+  
+  data[data == "-"] <- NA
+  
+  numeric_columns <- names(data)[3:ncol(data)] # Assuming columns from 3rd onward are numeric
+  data[numeric_columns] <- lapply(data[numeric_columns], function(x) as.numeric(substring(x, 1, 4)))
+  
+  # Shorten long column names or descriptions if needed
+  colnames(data) <- gsub("Presence of indigenous peoples in the country of production or parts thereof", 
+                         "Presence of Indigenous peoples", colnames(data))
+  colnames(data) <- gsub("The existence of duly reasoned claims by indigenous peoples based on objective and verifiable information", 
+                         "Duly reasoned claims by indigenous peoples", colnames(data))
+  colnames(data) <- gsub("Level of corruption", "Corruption level", colnames(data))
+  colnames(data) <- gsub("Child labour", "Child Labour", colnames(data))
+  colnames(data) <- gsub("Worst forms of child labour", "Worst forms of child labour", colnames(data))
+  colnames(data) <- gsub("Forced labour & Modern Slavery", "Forced Labour & Slavery", colnames(data))
+  colnames(data) <- gsub("Occupational safety and health", "Occupational safety", colnames(data))
+  colnames(data) <- gsub("Unequal treatment in employment", "Unequal Treatment", colnames(data))
+  colnames(data) <- gsub("Withholding of adequate wages", "Adequate wage", colnames(data))
+  colnames(data) <- gsub("Causing harmful soil change, water pollution and noise emission", 
+                         "Harmful soil change", colnames(data))
+  colnames(data) <- gsub("Unlawful eviction and taking of land, forest, and waters", 
+                         "Unlawful eviction", colnames(data))
+  
+  
+  return(data)
+}
+
+```
+
