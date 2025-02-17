@@ -315,39 +315,45 @@ create_and_save_circle_chart(data, crop_name = "Wood", output_dir = "indigineous
 
 # Data Cleaning and if necessary short the colnames 
 ```{r}
-# Function to clean the dataset
-clean_data <- function(data) {
-  
-# Remove first two rows (if they are headers)
-  data <- data[-c(1:2), ]
-  
-  colnames(data) <- make.names(colnames(data), unique = TRUE)
-  
-  data[data == "-"] <- NA
-  
-  numeric_columns <- names(data)[3:ncol(data)] # Assuming columns from 3rd onward are numeric
-  data[numeric_columns] <- lapply(data[numeric_columns], function(x) as.numeric(substring(x, 1, 4)))
-  
-  # Shorten long column names or descriptions if needed
-  colnames(data) <- gsub("Presence of indigenous peoples in the country of production or parts thereof", 
-                         "Presence of Indigenous peoples", colnames(data))
-  colnames(data) <- gsub("The existence of duly reasoned claims by indigenous peoples based on objective and verifiable information", 
-                         "Duly reasoned claims by indigenous peoples", colnames(data))
-  colnames(data) <- gsub("Level of corruption", "Corruption level", colnames(data))
-  colnames(data) <- gsub("Child labour", "Child Labour", colnames(data))
-  colnames(data) <- gsub("Worst forms of child labour", "Worst forms of child labour", colnames(data))
-  colnames(data) <- gsub("Forced labour & Modern Slavery", "Forced Labour & Slavery", colnames(data))
-  colnames(data) <- gsub("Occupational safety and health", "Occupational safety", colnames(data))
-  colnames(data) <- gsub("Unequal treatment in employment", "Unequal Treatment", colnames(data))
-  colnames(data) <- gsub("Withholding of adequate wages", "Adequate wage", colnames(data))
-  colnames(data) <- gsub("Causing harmful soil change, water pollution and noise emission", 
-                         "Harmful soil change", colnames(data))
-  colnames(data) <- gsub("Unlawful eviction and taking of land, forest, and waters", 
-                         "Unlawful eviction", colnames(data))
-  
-  
-  return(data)
-}
+
+library(dplyr)
+library(readr)
+
+
+input_file <- "Abstract_Risk_Coffee_Countries_4_Diagrams.csv"
+output_file <- "Updated_Abstract_Risk_Coffee_Countries.csv"
+
+
+df <- read_csv(input_file)
+
+# Remove the first row
+df <- df[-1, ]  
+df <- df %>% mutate_all(as.character)  
+
+# Define the new column names
+new_column_names <- c(
+  "Country", "ISO_A2", "Presence", "Consent", "Corruption level", 
+  "Lack of law Enforcement", "Child Labour", "Worst Forms ChildLabour", 
+  "Worst Forms ChildLabour_Cocoa", "Worst Forms ChildLabour_Cattle", 
+  "Worst Forms ChildLabour_Palm", "Worst Forms ChildLabour_Rubber", 
+  "Worst Forms ChildLabour_Soy", "Worst Forms ChildLabour_Wood",
+  "Forced LabourSlavery", "Forced LabourSlavery_Cocoa", "Forced LabourSlavery_Cattle", 
+  "Forced LabourSlavery_Palm", "Forced LabourSlavery_Rubber", 
+  "Forced LabourSlavery_Soy", "Forced LabourSlavery_Wood", "Occupational Safety", 
+  "Freedom Association", "Unequal Treatment", "Adequate Wage", "Harmful Soil Change", 
+  "Unlawful Eviction", "Inappropriate use of security forces", "Armed Conflict", 
+  "Sanctions imposed by UN_EU"
+)
+
+# Rename the columns
+colnames(df) <- new_column_names
+
+# Save the updated dataframe to a new CSV file
+write_csv(df, output_file)
+
+# Print confirmation message
+cat("Updated file saved at:", output_file, "\n")
+
 
 ```
 
